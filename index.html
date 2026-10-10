@@ -2,91 +2,119 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>Catch the Hearts - Surprise for Riya</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
 
     <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Prevent accidental scrolling */
+            overflow: hidden;
+            overscroll-behavior: none;
             font-family: 'Poppins', sans-serif;
             background: linear-gradient(45deg, #ff9a9e, #fecfef, #ffc3a0, #ffafbd);
-            background-size: 400% 400%;
-            animation: gradientMove 10s ease infinite;
-            touch-action: none; /* Crucial for mobile drag games */
+            touch-action: none;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        @keyframes gradientMove {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
+        /* ---------- Background (GPU-friendly: only transforms animate) ---------- */
         .bg-container {
-            position: absolute; 
-            top: 0; left: 0; 
-            width: 100%; height: 100%;
-            overflow: hidden; 
-            z-index: 1; /* Keep it below the canvas (z-index 10) */
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            z-index: 1;
             pointer-events: none;
+            contain: strict;
         }
-        
+
+        /* Replaces the animated background-position gradient, which repainted every frame */
+        .bg-gradient {
+            position: absolute;
+            top: 0; left: 0;
+            width: 200%; height: 100%;
+            background: linear-gradient(90deg, #ff9a9e, #fecfef, #ffc3a0, #ffafbd, #ff9a9e);
+            will-change: transform;
+            animation: gradientMove 10s ease-in-out infinite alternate;
+        }
+        @keyframes gradientMove {
+            from { transform: translate3d(0, 0, 0); }
+            to   { transform: translate3d(-50%, 0, 0); }
+        }
+
+        /* Soft radial gradients instead of filter: blur(80px) */
         .orb {
-            position: absolute; 
-            border-radius: 50%; 
-            filter: blur(80px); 
-            opacity: 0.8;
+            position: absolute;
+            border-radius: 50%;
+            will-change: transform;
             animation: floatOrb 12s infinite alternate ease-in-out;
         }
-        .orb1 { width: 350px; height: 350px; background: #ff4081; top: -50px; left: -50px; }
-        .orb2 { width: 450px; height: 450px; background: #ff80ab; bottom: -100px; right: -50px; animation-delay: -3s; }
-        .orb3 { width: 300px; height: 300px; background: #ff6e40; top: 40%; left: 30%; animation-delay: -6s; }
-        
+        .orb1 {
+            width: 500px; height: 500px; top: -150px; left: -150px;
+            background: radial-gradient(circle, rgba(255,64,129,.8) 0%, rgba(255,64,129,0) 65%);
+        }
+        .orb2 {
+            width: 650px; height: 650px; bottom: -250px; right: -200px;
+            background: radial-gradient(circle, rgba(255,128,171,.85) 0%, rgba(255,128,171,0) 65%);
+            animation-delay: -3s;
+        }
+        .orb3 {
+            width: 450px; height: 450px; top: 35%; left: 20%;
+            background: radial-gradient(circle, rgba(255,110,64,.7) 0%, rgba(255,110,64,0) 65%);
+            animation-delay: -6s;
+        }
         @keyframes floatOrb {
-            0% { transform: translate(0, 0) scale(1); }
-            100% { transform: translate(60px, 60px) scale(1.3); }
+            from { transform: translate3d(0, 0, 0) scale(1); }
+            to   { transform: translate3d(60px, 60px, 0) scale(1.3); }
         }
 
+        /* ---------- Game ---------- */
         #game-canvas {
             display: block;
-            width: 100%;
-            height: 100%;
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 10;
             background: transparent;
         }
 
         .overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 20;
-            background: rgba(255, 255, 255, 0.3); /* Slightly more transparent for the background */
-            backdrop-filter: blur(5px);
+            /* backdrop-filter removed: it re-blurs the animated background every frame */
+            background: rgba(255, 255, 255, 0.4);
             transition: opacity 0.5s ease;
+        }
+
+        .start-title {
+            margin: 0 0 8px;
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #db2777;
+        }
+        .start-sub {
+            margin: 0 0 32px;
+            padding: 0 24px;
+            text-align: center;
+            color: #ec4899;
         }
 
         #score-display {
             position: absolute;
-            top: 20px;
+            top: calc(20px + env(safe-area-inset-top, 0px));
             left: 0;
             width: 100%;
             text-align: center;
@@ -96,9 +124,11 @@
             z-index: 15;
             pointer-events: none;
             text-shadow: 2px 2px 4px rgba(255,255,255,0.8);
+            transition: transform 0.15s ease;
         }
 
         .btn-start {
+            font-family: inherit;
             background: linear-gradient(45deg, #ff4081, #f50057);
             color: white;
             padding: 15px 40px;
@@ -108,13 +138,10 @@
             border: none;
             box-shadow: 0 10px 20px rgba(245, 0, 87, 0.3);
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            z-index: 30; /* Ensure button is clickable above everything */
+            transition: transform 0.2s;
+            z-index: 30;
         }
-
-        .btn-start:active {
-            transform: scale(0.95);
-        }
+        .btn-start:active { transform: scale(0.95); }
 
         #victory-screen {
             display: none;
@@ -133,56 +160,46 @@
             transform: scale(0.5);
             padding: 0 20px;
         }
-
-        .stage-1-text {
-            font-size: 3.5rem;
-        }
-
+        .stage-1-text { font-size: clamp(2.2rem, 11vw, 3.5rem); }
         .stage-2-text {
-            font-size: 4.5rem;
+            font-size: clamp(2.8rem, 14vw, 4.5rem);
             background: linear-gradient(45deg, #d81b60, #ff4081);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        @keyframes popIn {
-            to { opacity: 1; transform: scale(1); }
-        }
+        @keyframes popIn  { to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOut { to { opacity: 0; transform: scale(1.1); } }
 
-        @keyframes fadeOut {
-            to { opacity: 0; transform: scale(1.1); }
+        @media (prefers-reduced-motion: reduce) {
+            .bg-gradient, .orb { animation: none; }
         }
     </style>
 </head>
 <body>
 
-    
-    <!-- Romantic audio tune (hidden) -->
     <audio id="bg-music" loop>
         <source src="https://assets.mixkit.co/music/preview/mixkit-romantic-acoustic-guitar-230.mp3" type="audio/mpeg">
     </audio>
 
-    <!-- Background Elements -->
-    <div class="bg-container">
+    <div class="bg-container" aria-hidden="true">
+        <div class="bg-gradient"></div>
         <div class="orb orb1"></div>
         <div class="orb orb2"></div>
         <div class="orb orb3"></div>
     </div>
 
-    <!-- Score Display -->
     <div id="score-display" style="display: none;">Hearts: <span id="score-val">0</span> / 7</div>
 
-    <!-- The Game Canvas -->
     <canvas id="game-canvas"></canvas>
 
-    <!-- Start Screen Overlay -->
     <div id="start-screen" class="overlay">
-        <h1 class="text-3xl font-bold text-pink-600 mb-2 font-[Poppins]">Catch the Hearts!</h1>
-        <p class="text-pink-500 mb-8 text-center px-6 font-[Poppins]">Help Riya catch 7 hearts!</p>
-        <button class="btn-start font-[Poppins]" id="start-btn">Play Now</button>
+        <h1 class="start-title">Catch the Hearts!</h1>
+        <p class="start-sub">Help Riya catch 7 hearts!</p>
+        <button class="btn-start" id="start-btn">Play Now</button>
     </div>
 
-    <!-- Victory Screen Overlay (2 Stages) -->
     <div id="victory-screen" class="overlay">
         <div id="victory-stage-1" class="romantic-text stage-1-text" style="display: none;">
             You caught my heart Riya ❤️
@@ -193,6 +210,7 @@
     </div>
 
     <script>
+    (() => {
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         const startScreen = document.getElementById('start-screen');
@@ -204,242 +222,244 @@
         const startBtn = document.getElementById('start-btn');
         const bgMusic = document.getElementById('bg-music');
 
-        // Game Configuration
+        const isMobile = matchMedia('(pointer: coarse)').matches || innerWidth < 700;
+        const maxDpr = isMobile ? 1.5 : 2;
+
+        // Game config
         const TARGET_SCORE = 7;
+        const SPAWN_MS = 700;
+        const EMOJIS = ['❤️', '💖', '💘', '💕', '💗'];
+        const HEART_SPR = 40;     // sprite size in CSS px
+        const SPR_SCALE = 1.25;   // sprite draw scale to match the old text-based size
+
         let score = 0;
-        let gameState = 'start'; // 'start', 'playing', 'won'
+        let gameState = 'start';  // 'start' | 'playing' | 'won'
         let hearts = [];
-        let animationId;
+        let animationId = 0;
         let lastTime = 0;
-        let heartSpawnTimer = 0;
+        let spawnTimer = 0;
 
-        const player = {
-            x: 0,
-            y: 0,
-            width: 80,
-            height: 100, // Taller to fit emoji + text
-            emoji: '💃',
-            name: 'Riya',
-            updatePosition(clientX) {
-                const rect = canvas.getBoundingClientRect();
-                let newX = clientX - rect.left;
-                // Keep player within screen bounds
-                this.x = Math.max(this.width / 2, Math.min(canvas.width - this.width / 2, newX));
-            },
-            draw() {
-                // Draw the full-body emoji
-                ctx.font = `65px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, this.x, this.y - 15);
-                
-                // Draw her name underneath
-                ctx.font = `bold 22px Poppins`;
-                ctx.fillStyle = '#d81b60';
-                ctx.shadowColor = 'rgba(255,255,255,0.8)';
-                ctx.shadowBlur = 4;
-                ctx.fillText(this.name, this.x, this.y + 40);
-                ctx.shadowColor = 'transparent'; // reset
-            }
-        };
+        let dpr = 1, W = 0, H = 0, spriteDpr = 0;
+        let heartSprites = [];
+        let playerSprite = null;
+        let targetX = 0;
 
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            // Place player at the bottom center initially
-            if (gameState === 'start') {
-                player.x = canvas.width / 2;
-            }
-            player.y = canvas.height - player.height;
+        const player = { x: 0, y: 0, width: 80, height: 100 };
+
+        /* ---------- Sprites: emoji/text rendered once, then blitted ---------- */
+        function buildSprites() {
+            if (spriteDpr === dpr && heartSprites.length) return;
+            spriteDpr = dpr;
+
+            heartSprites = EMOJIS.map(e => {
+                const s = document.createElement('canvas');
+                s.width = s.height = Math.ceil(HEART_SPR * dpr);
+                const c = s.getContext('2d');
+                c.scale(dpr, dpr);
+                c.font = '32px sans-serif';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText(e, HEART_SPR / 2, HEART_SPR / 2);
+                return s;
+            });
+
+            // Player + name in one sprite (the shadowBlur is also paid for only once)
+            const PW = 140, PH = 125;
+            playerSprite = document.createElement('canvas');
+            playerSprite.width = Math.ceil(PW * dpr);
+            playerSprite.height = Math.ceil(PH * dpr);
+            const p = playerSprite.getContext('2d');
+            p.scale(dpr, dpr);
+            p.textAlign = 'center';
+            p.textBaseline = 'middle';
+            p.font = '65px sans-serif';
+            p.fillText('💃', PW / 2, 50);
+            p.font = 'bold 22px Poppins, sans-serif';
+            p.fillStyle = '#d81b60';
+            p.shadowColor = 'rgba(255,255,255,0.8)';
+            p.shadowBlur = 4;
+            p.fillText('Riya', PW / 2, 105);
+            playerSprite._w = PW;
+            playerSprite._h = PH;
         }
 
-        window.addEventListener('resize', resizeCanvas);
+        /* ---------- Sizing ---------- */
+        function resizeCanvas() {
+            dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+            W = window.innerWidth;
+            H = window.innerHeight;
+            canvas.width = Math.round(W * dpr);
+            canvas.height = Math.round(H * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            player.y = H - player.height;
+            if (gameState === 'start') targetX = W / 2;
+            player.x = Math.max(player.width / 2, Math.min(W - player.width / 2, targetX || W / 2));
+            buildSprites();
+        }
+
+        let resizeRaf = 0;
+        window.addEventListener('resize', () => {
+            cancelAnimationFrame(resizeRaf);
+            resizeRaf = requestAnimationFrame(resizeCanvas);
+        });
         resizeCanvas();
 
-        class Heart {
-            constructor() {
-                this.x = Math.random() * (canvas.width - 40) + 20;
-                this.y = -30; // Start slightly above screen
-                this.size = Math.random() * 15 + 25; // Random size between 25-40
-                this.speed = Math.random() * 2 + 2.5; // Fall speed
-                this.emojis = ['❤️', '💖', '💘', '💕', '💗'];
-                this.emoji = this.emojis[Math.floor(Math.random() * this.emojis.length)];
-                
-                // Add a slight wobble effect
-                this.wobbleSpeed = Math.random() * 0.05 + 0.02;
-                this.wobbleOffset = Math.random() * Math.PI * 2;
-                this.baseX = this.x;
-            }
-
-            update() {
-                this.y += this.speed;
-                // Sine wave wobble for natural falling motion
-                this.x = this.baseX + Math.sin(this.y * this.wobbleSpeed + this.wobbleOffset) * 15;
-            }
-
-            draw() {
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(this.emoji, this.x, this.y);
-            }
+        // Rebuild sprites once web fonts are ready so the name renders in Poppins
+        if (document.fonts && document.fonts.load) {
+            document.fonts.load('bold 22px Poppins').then(() => { spriteDpr = 0; buildSprites(); });
         }
 
+        /* ---------- Hearts ---------- */
+        function spawnHeart() {
+            const x = Math.random() * (W - 40) + 20;
+            hearts.push({
+                x, baseX: x,
+                y: -30,
+                size: Math.random() * 15 + 25,
+                speed: (Math.random() * 2 + 2.5) * 60,        // px per second (frame-rate independent)
+                sprite: heartSprites[(Math.random() * heartSprites.length) | 0],
+                wobbleSpeed: Math.random() * 0.05 + 0.02,
+                wobbleOffset: Math.random() * Math.PI * 2
+            });
+        }
+
+        /* ---------- Game loop ---------- */
         function gameLoop(timestamp) {
             if (gameState !== 'playing') return;
 
-            const deltaTime = timestamp - lastTime;
+            // Clamp dt so returning from a background tab doesn't cause a jump
+            const dt = Math.min(timestamp - lastTime, 50);
             lastTime = timestamp;
+            const sec = dt / 1000;
 
-            // Clear canvas for next frame
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, W, H);
 
-            // Spawn new hearts periodically
-            heartSpawnTimer += deltaTime;
-            if (heartSpawnTimer > 700) { // Spawn slightly slower to make it easy
-                hearts.push(new Heart());
-                heartSpawnTimer = 0;
+            // Apply the latest pointer position (batched to one update per frame)
+            player.x = Math.max(player.width / 2, Math.min(W - player.width / 2, targetX));
+
+            spawnTimer += dt;
+            if (spawnTimer >= SPAWN_MS) {
+                spawnTimer -= SPAWN_MS;
+                spawnHeart();
             }
 
-            // Update and draw hearts
             for (let i = hearts.length - 1; i >= 0; i--) {
-                const heart = hearts[i];
-                heart.update();
-                heart.draw();
+                const h = hearts[i];
+                h.y += h.speed * sec;
+                h.x = h.baseX + Math.sin(h.y * h.wobbleSpeed + h.wobbleOffset) * 15;
 
-                // Check Collision with player (Riya)
-                const distX = heart.x - player.x;
-                const distY = heart.y - player.y;
-                const distance = Math.sqrt(distX * distX + distY * distY);
+                const dx = h.x - player.x;
+                const dy = h.y - player.y;
+                const hitR = player.width / 2 + h.size / 2;
 
-                if (distance < (player.width / 2 + heart.size / 2)) {
-                    // Caught the heart!
-                    hearts.splice(i, 1);
+                if (dx * dx + dy * dy < hitR * hitR) {
+                    hearts[i] = hearts[hearts.length - 1];
+                    hearts.pop();
                     score++;
-                    scoreVal.innerText = score;
-                    
-                    // Pop animation on score text
-                    scoreDisplay.style.transform = 'scale(1.3)';
-                    setTimeout(() => scoreDisplay.style.transform = 'scale(1)', 150);
+                    scoreVal.textContent = score;
 
-                    // Check Win Condition
+                    scoreDisplay.style.transform = 'scale(1.3)';
+                    setTimeout(() => { scoreDisplay.style.transform = 'scale(1)'; }, 150);
+
                     if (score >= TARGET_SCORE) {
                         triggerVictory();
-                        return; // Stop current loop frame
+                        return;
                     }
-                } 
-                // Remove hearts that fall off screen to save memory
-                else if (heart.y > canvas.height + 50) {
-                    hearts.splice(i, 1);
+                } else if (h.y > H + 50) {
+                    hearts[i] = hearts[hearts.length - 1];
+                    hearts.pop();
+                } else {
+                    const d = h.size * SPR_SCALE;
+                    ctx.drawImage(h.sprite, h.x - d / 2, h.y - d / 2, d, d);
                 }
             }
 
-            // Draw the player
-            player.draw();
+            // Player sprite: emoji centre sits at (x, y - 15), same as before
+            ctx.drawImage(playerSprite, player.x - playerSprite._w / 2, player.y - 65,
+                          playerSprite._w, playerSprite._h);
 
-            // Request next frame
             animationId = requestAnimationFrame(gameLoop);
         }
 
+        /* ---------- Victory ---------- */
         function triggerVictory() {
             gameState = 'won';
             cancelAnimationFrame(animationId);
-            
-            // Clear canvas gracefully
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hearts.length = 0;
+            ctx.clearRect(0, 0, W, H);
             scoreDisplay.style.display = 'none';
-            
-            // Show Victory Screen Stage 1
+
             victoryScreen.style.display = 'flex';
             stage1Text.style.display = 'block';
-            
-            // Wait exactly 3 seconds, then transition to Stage 2
+
             setTimeout(() => {
-                // Fade out stage 1
                 stage1Text.style.animation = 'fadeOut 1s forwards';
-                
                 setTimeout(() => {
-                    // Hide stage 1, show stage 2 and confetti
                     stage1Text.style.display = 'none';
                     stage2Text.style.display = 'block';
                     shootConfetti();
-                }, 1000); // Wait for fade out to finish
-                
+                }, 1000);
             }, 3000);
         }
 
         function shootConfetti() {
-            const duration = 15000; // Keep shooting for a long time
-            const end = Date.now() + duration;
+            // Own canvas, drawn off the main thread where supported
+            const cc = document.createElement('canvas');
+            cc.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100;';
+            document.body.appendChild(cc);
 
-            // Fire every 250ms for a continuous explosion (Mobile optimized)
-            const interval = setInterval(function() {
+            const shoot = confetti.create(cc, {
+                resize: true,
+                useWorker: true,
+                disableForReducedMotion: true
+            });
+
+            const colors = ['#ffb6c1', '#ff1493', '#ff69b4', '#ffffff', '#c2185b'];
+            const count = isMobile ? 8 : 15;
+            const ticks = isMobile ? 140 : 200;
+            const end = Date.now() + 15000;
+
+            function burst() {
+                shoot({ particleCount: count, angle: 60,  spread: 60, origin: { x: 0, y: 1 }, colors, ticks, zIndex: 100 });
+                shoot({ particleCount: count, angle: 120, spread: 60, origin: { x: 1, y: 1 }, colors, ticks, zIndex: 100 });
+            }
+
+            burst();
+            const interval = setInterval(() => {
                 if (Date.now() > end) {
-                    return clearInterval(interval);
+                    clearInterval(interval);
+                    setTimeout(() => { if (shoot.reset) shoot.reset(); cc.remove(); }, 4000);
+                    return;
                 }
-                confetti({
-                    particleCount: 15,
-                    angle: 60,
-                    spread: 60,
-                    origin: { x: 0, y: 1 },
-                    colors: ['#ffb6c1', '#ff1493', '#ff69b4', '#ffffff', '#c2185b'],
-                    zIndex: 100
-                });
-                confetti({
-                    particleCount: 15,
-                    angle: 120,
-                    spread: 60,
-                    origin: { x: 1, y: 1 },
-                    colors: ['#ffb6c1', '#ff1493', '#ff69b4', '#ffffff', '#c2185b'],
-                    zIndex: 100
-                });
-            }, 250);
+                burst();
+            }, isMobile ? 300 : 250);
         }
 
-        // Mouse Controls
-        canvas.addEventListener('mousemove', (e) => {
-            if (gameState === 'playing') {
-                player.updatePosition(e.clientX);
-            }
-        });
+        /* ---------- Input (pointer events cover mouse + touch) ---------- */
+        canvas.addEventListener('pointerdown', e => { if (gameState === 'playing') targetX = e.clientX; });
+        canvas.addEventListener('pointermove', e => { if (gameState === 'playing') targetX = e.clientX; });
 
-        // Touch Controls (Mobile Friendly)
-        canvas.addEventListener('touchstart', (e) => {
-            if (gameState === 'playing') {
-                player.updatePosition(e.touches[0].clientX);
-            }
-        }, { passive: false });
-
-        canvas.addEventListener('touchmove', (e) => {
-            if (gameState === 'playing') {
-                e.preventDefault(); // Prevents screen from scrolling while dragging
-                player.updatePosition(e.touches[0].clientX);
-            }
-        }, { passive: false });
-
-        // Start game & Audio Playback
+        /* ---------- Start ---------- */
         startBtn.addEventListener('click', () => {
-            // Browsers block autoplay until the user interacts. The start button click acts as the interaction.
-            bgMusic.play().catch(error => {
-                console.log("Audio playback failed: ", error);
-            });
-            
+            bgMusic.play().catch(err => console.log('Audio playback failed: ', err));
+
             gameState = 'playing';
             score = 0;
-            scoreVal.innerText = score;
+            scoreVal.textContent = score;
             hearts = [];
-            
+            spawnTimer = 0;
+            targetX = W / 2;
+
             startScreen.style.opacity = '0';
             setTimeout(() => {
                 startScreen.style.display = 'none';
                 scoreDisplay.style.display = 'block';
-                
-                // Initialize game clock and start loop
                 lastTime = performance.now();
                 animationId = requestAnimationFrame(gameLoop);
             }, 500);
         });
-
+    })();
     </script>
 </body>
 </html>
